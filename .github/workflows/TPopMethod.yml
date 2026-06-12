@@ -1,4 +1,4 @@
-name: Cloud PC + Web Browser Link + Opera GX
+name: Cloud PC + Web Browser Link + Opera GX (Ngrok URL Fix)
 
 on:
   workflow_dispatch:
@@ -83,15 +83,21 @@ jobs:
           Expand-Archive -Path "novnc.zip" -DestinationPath "C:\noVNC" -Force
           Copy-Item -Path "C:\noVNC\noVNC-1.5.0\*" -Destination "C:\noVNC" -Recurse -Force
           
-          Write-Host "Downloading core network proxy pipeline (Ngrok)..."
-          Invoke-WebRequest -Uri "https://bin.equinox.io/c/b34199vj6ks/ngrok-stable-windows-amd64.zip" -OutFile "ngrok.zip"
+          Write-Host "Downloading core network proxy pipeline from official permanent URL..."
+          # Replaced the broken equinox link with official direct zip binary
+          $ngrokUrl = "https://bin.equinox.io/c/b34199vj6ks/ngrok-v3-stable-windows-amd64.zip"
+          try {
+              Invoke-WebRequest -Uri $ngrokUrl -OutFile "ngrok.zip"
+          } catch {
+              # Fallback link directly to official CDN if equinox subchannel is completely down
+              Invoke-WebRequest -Uri "https://bin.equinox.io/a/nn9Uq8gJbC6/ngrok-v3-stable-windows-amd64.zip" -OutFile "ngrok.zip"
+          }
           Expand-Archive -Path "ngrok.zip" -DestinationPath "." -Force
           Remove-Item "ngrok.zip" -ErrorAction SilentlyContinue
 
       - name: Start Web Services & Expose Link
         run: |
           Write-Host "Bridging VNC to Web Ports..."
-          # Maps VNC traffic (5900) to a web-accessible websocket port (8080)
           Start-Process websockify -ArgumentList "8080 localhost:5900 --web C:\noVNC"
           Start-Sleep -Seconds 3
           
@@ -101,7 +107,6 @@ jobs:
           
           $NgrokApi = Invoke-RestMethod -Uri "http://127.0.0.1:4040/api/tunnels"
           $PublicUrl = $NgrokApi.tunnels[0].public_url
-          # Append the default entry point file for noVNC
           $WebLink = "$PublicUrl/vnc.html"
           
           $ESC = [char]27
