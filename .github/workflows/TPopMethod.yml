@@ -31,13 +31,15 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           Write-Host "Pulling AweSun executable from your Release v1.0..."
-          gh release download v1.0 --pattern "AweSun_Setup.exe" --dir "$env:TEMP"
+          
+          # Added explicit repository flag to bypass the 'not a git repository' error
+          gh release download v1.0 --repo "tusharpop553-afk/OperaGX-RDP" --pattern "AweSun_Setup.exe" --dir "$env:TEMP"
           
           $installer = "$env:TEMP\AweSun_Setup.exe"
           if (Test-Path $installer) {
               Write-Host "✅ Installer pulled successfully from release storage!"
           } else {
-              Write-Error "CRITICAL: AweSun_Setup.exe could not be retrieved from Release v1.0. Verify the tag name and file name match perfectly."
+              Write-Error "CRITICAL: AweSun_Setup.exe could not be retrieved from Release v1.0."
               exit 1
           }
 
