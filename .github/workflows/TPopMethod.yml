@@ -29,13 +29,20 @@ jobs:
       - name: Download Portable Supremo Engine
         run: |
           Write-Host "Fetching independent routing host executable..."
-          $url = "https://www.supremocontrol.com/download/supremo/windows/"
+          # Pointing to the absolute static binary link to avoid 404 page routing
+          $url = "https://www.supremocontrol.com/download/Supremo.exe"
           $exePath = "$env:TEMP\Supremo.exe"
           
-          # Emulate regular browser request to grab the standalone file cleanly
+          [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
           $headers = @{"User-Agent" = "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
           Invoke-WebRequest -Uri $url -Headers $headers -OutFile $exePath
-          Write-Host "✅ Standalone Supremo file pulled successfully."
+          
+          if ((Get-Item $exePath).Length -gt 5MB) {
+              Write-Host "✅ Standalone Supremo file pulled successfully!"
+          } else {
+              Write-Error "Downloaded file is too small. Handshake failed."
+              exit 1
+          }
 
       - name: Initialize Background Hosting Profiles
         run: |
@@ -49,16 +56,12 @@ jobs:
       - name: Parse Active Routing Address
         run: |
           Write-Host "Extracting generated system ID..."
-          
-          # Supremo logs session identification directly into a local log file upon server handshakes
           $logPath = "$env:ProgramData\SupremoRemoteDesktop\Supremo.log"
           if (-not (Test-Path $logPath)) { $logPath = "$env:AppData\SupremoRemoteDesktop\Supremo.log" }
           
-          # Give it a tiny window to establish a handshake with the routing servers
-          for ($i = 1; $i -le 6; $i++) {
+          for ($i = 1; $i -le 8; $i++) {
               if (Test-Path $logPath) {
                   $logContent = Get-Content $logPath -Raw
-                  # Regex to parse out the unique 9-digit Supremo Address ID
                   if ($logContent -match 'Your ID:\s*(\d{3}\s*\d{3}\s*\d{3})' -or $logContent -match 'ID:\s*(\d{9})') {
                       $supremoID = $matches[1] -replace '\s+', ''
                       
@@ -72,7 +75,7 @@ jobs:
                       break
                   }
               }
-              Write-Host "Waiting for network synchronization token ($i/6)..."
+              Write-Host "Waiting for network synchronization token ($i/8)..."
               Start-Sleep -Seconds 5
           }
 
