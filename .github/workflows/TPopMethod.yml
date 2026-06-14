@@ -29,8 +29,8 @@ jobs:
       RDP_PASS: "Pass1234"
 
     steps:
-      - name: Force Full HD Resolution
-        run: Set-DisplayResolution -Width 1920 -Height 1080 -Force
+      - name: Force Taller Resolution for Mobile Display
+        run: Set-DisplayResolution -Width 1280 -Height 1024 -Force
 
       - name: Wipe Unnecessary Pre-Installed GitHub Apps & Shortcuts
         run: |
@@ -61,11 +61,9 @@ jobs:
           $WshShell = New-Object -ComObject WScript.Shell
           $Shortcut = $WshShell.CreateShortcut("$publicDesktop\Opera GX Browser.lnk")
           $Shortcut.TargetPath = $operaExe
-          # Routes directly to your link, suppresses the intro splash, and injects feature flags
           $Shortcut.Arguments = "https://www.opera.com/gx/forsaken --no-first-run --enable-features=GXRewards,GXRewardsSidebarItem --with-feature:gx-rewards=1"
           $Shortcut.Save()
 
-          # Force launch the freshly created shortcut block
           Start-Process -FilePath "$publicDesktop\Opera GX Browser.lnk"
 
       - name: Parse Runtime Requirements
