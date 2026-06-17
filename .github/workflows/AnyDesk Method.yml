@@ -1,3 +1,4 @@
+
 name: AnyDesk
 
 on:
@@ -78,17 +79,21 @@ jobs:
 
       - name: Auto-Download and Extract Windscribe Extension Files
         run: |
-          Write-Host "Pre-downloading Windscribe Extension directly onto the machine..."
+          Write-Host "Fetching production Windscribe bundle from Chrome Store engine mirrors..."
           $extDir = "C:\WindscribeExt"
           if (-not (Test-Path $extDir)) { New-Item -ItemType Directory -Path $extDir -Force | Out-Null }
           
-          # Downloads a confirmed source zip of the extension directly to the system
-          $zipUrl = "https://raw.githubusercontent.com/omeryoruk/windscribe-extension-patched/master/windscribe.zip"
+          # Download link using official extension identifier via crx4chrome production CDN
+          $crxUrl = "https://clients2.google.com/service/update2/crx?response=redirect&os=win&arch=x64&os_arch=x86_64&nacl_arch=x86-64&prod=chromecrx&prodchannel=&prodversion=110.0.0.0&acceptformat=crx2,crx3&x=id%3Dbocbaocobfecmgdfodbmahedofdbhpao%26uc"
           $zipPath = "$env:TEMP\windscribe.zip"
           
-          Invoke-WebRequest -Uri $zipUrl -OutFile $zipPath
+          # Force modern security protocols to avoid download handshaking drops
+          [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
           
-          Write-Host "Extracting extension deployment assets..."
+          Invoke-WebRequest -Uri $crxUrl -OutFile $zipPath -UserAgent "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36"
+          
+          Write-Host "Unpacking build components..."
+          # Standard modern .crx files unpack smoothly directly via Shell or Expand-Archive when named .zip
           Expand-Archive -Path $zipPath -DestinationPath $extDir -Force
           Remove-Item $zipPath -ErrorAction SilentlyContinue
 
@@ -174,7 +179,6 @@ jobs:
           $WshShell = New-Object -ComObject WScript.Shell
           $Shortcut = $WshShell.CreateShortcut("$publicDesktop\Opera GX Browser.lnk")
           $Shortcut.TargetPath = $operaExe
-          # Injects the pre-downloaded Windscribe folder location into the browser arguments
           $Shortcut.Arguments = "https://www.opera.com/gx/forsaken --no-first-run --load-extension=`"C:\WindscribeExt`""
           $Shortcut.Save()
 
