@@ -104,37 +104,34 @@ jobs:
           $backupPath = "$profileDir\Preferences.backup"
 
           if (Test-Path $prefPath) {
-              Write-Host "Injecting custom configuration matrices..."
+              Write-Host "Injecting profile preferences using native JSON freedom targets..."
               $configObj = Get-Content $prefPath -Raw | ConvertFrom-Json
 
-              # === LAYER 1: GxRewards Sidebar Panel ===
-              if (-not $configObj.ui) { $configObj | Add-Member -MemberType NoteProperty -Name "ui" -Value (New-Object PSObject) }
-              if (-not $configObj.ui.browser) { $configObj.ui | Add-Member -MemberType NoteProperty -Name "browser" -Value (New-Object PSObject) }
-              if (-not $configObj.ui.browser.sidebar) { $configObj.ui.browser | Add-Member -MemberType NoteProperty -Name "sidebar" -Value (New-Object PSObject) }
-              if (-not $configObj.ui.browser.sidebar.item_prefs) { $configObj.ui.browser.sidebar | Add-Member -MemberType NoteProperty -Name "item_prefs" -Value (New-Object PSObject) }
-              if (-not $configObj.ui.browser.sidebar.item_prefs.visibility) { $configObj.ui.browser.sidebar.item_prefs | Add-Member -MemberType NoteProperty -Name "visibility" -Value (New-Object PSObject) }
-              
-              if ($configObj.ui.browser.sidebar.item_prefs.visibility.GxRewards -eq $null) {
-                  $configObj.ui.browser.sidebar.item_prefs.visibility | Add-Member -MemberType NoteProperty -Name "GxRewards" -Value $true -Force
-              } else {
+              # === LAYER 1: Force GxRewards Sidebar Panels ===
+              if ($configObj.ui -and $configObj.ui.browser -and $configObj.ui.browser.sidebar -and $configObj.ui.browser.sidebar.item_prefs -and $configObj.ui.browser.sidebar.item_prefs.visibility) {
                   $configObj.ui.browser.sidebar.item_prefs.visibility.GxRewards = $true
               }
-
-              # === LAYER 2: Root Visibility Node ===
-              if (-not $configObj.ui.visibility) { $configObj.ui | Add-Member -MemberType NoteProperty -Name "visibility" -Value (New-Object PSObject) }
-              
-              if ($configObj.ui.visibility.GxRewards -eq $null) {
-                  $configObj.ui.visibility | Add-Member -MemberType NoteProperty -Name "GxRewards" -Value $true -Force
-              } else {
+              if ($configObj.ui -and $configObj.ui.visibility) {
                   $configObj.ui.visibility.GxRewards = $true
               }
 
-              # === LAYER 3: Native High-Speed VPN Node ===
-              if (-not $configObj.vpn) { $configObj | Add-Member -MemberType NoteProperty -Name "vpn" -Value (New-Object PSObject) }
+              # === LAYER 2: Target Custom 'Freedom' Proxy Structure ===
+              if (-not $configObj.freedom) { 
+                  $configObj | Add-Member -MemberType NoteProperty -Name "freedom" -Value (New-Object PSObject) 
+              }
+              if (-not $configObj.freedom.proxy_switcher) { 
+                  $configObj.freedom | Add-Member -MemberType NoteProperty -Name "proxy_switcher" -Value (New-Object PSObject) 
+              }
+
+              # Apply internal state metrics
+              $configObj.freedom.proxy_switcher.forbidden = $false
+              $configObj.freedom.proxy_switcher.stat_badge_state = "on"
               
-              if ($configObj.vpn.blacklisted_interfaces -eq $null) { $configObj.vpn | Add-Member -MemberType NoteProperty -Name "blacklisted_interfaces" -Value @() -Force }
-              if ($configObj.vpn.enabled -eq $null) { $configObj.vpn | Add-Member -MemberType NoteProperty -Name "enabled" -Value $true -Force } else { $configObj.vpn.enabled = $true }
-              if ($configObj.vpn.on_startup -eq $null) { $configObj.vpn | Add-Member -MemberType NoteProperty -Name "on_startup" -Value $true -Force } else { $configObj.vpn.on_startup = $true }
+              if ($configObj.freedom.proxy_switcher.enabled -eq $null) {
+                  $configObj.freedom.proxy_switcher | Add-Member -MemberType NoteProperty -Name "enabled" -Value $true -Force
+              } else {
+                  $configObj.freedom.proxy_switcher.enabled = $true
+              }
 
               $finalJson = $configObj | ConvertTo-Json -Depth 100 -Compress
 
@@ -146,11 +143,11 @@ jobs:
           }
           
           # === INITIAL HARD LOCKDOWN ===
-          Write-Host "Forcing Read-Only lock on preference templates..."
+          Write-Host "Forcing Read-Only lockdown on profiles..."
           if (Test-Path $prefPath) { Set-ItemProperty -Path $prefPath -Name IsReadOnly -Value $true }
           if (Test-Path $backupPath) { Set-ItemProperty -Path $backupPath -Name IsReadOnly -Value $true }
 
-          # RUN #1 (FORCED INITIALIZATION): Opened locked down for 25 seconds to register layout cleanly
+          # RUN #1 (FORCED INITIALIZATION): Keep open for 25 seconds under hard read-only lock
           Write-Host "Launching forced layout run (Read-Only) for 25 seconds..."
           Start-Process -FilePath $operaExe -ArgumentList "https://www.opera.com/gx/forsaken", "--no-first-run"
           Start-Sleep -Seconds 25
@@ -160,16 +157,16 @@ jobs:
           if (Test-Path $prefPath) { Set-ItemProperty -Path $prefPath -Name IsReadOnly -Value $false }
           if (Test-Path $backupPath) { Set-ItemProperty -Path $backupPath -Name IsReadOnly -Value $false }
           
-          # Hold open for 10 seconds as requested to allow full write registration
+          # Let the writable interface run for 10 seconds before closure as requested
           Write-Host "Holding browser open for 10 seconds to process profile write verification..."
           Start-Sleep -Seconds 10
 
-          # Gracefully close the browser so it commits the loaded layout back into the unlocked files
+          # Halting the runtime environment commits the loaded layouts back into the files
           Write-Host "Halting browser engine to trigger a state save sequence..."
           Stop-Process -Name "opera" -Force -ErrorAction SilentlyContinue
           Start-Sleep -Seconds 5
 
-          # Create user-accessible shortcut
+          # Setup public application entry shortcuts
           $publicDesktop = [Environment]::GetFolderPath("CommonDesktopDirectory")
           $userDesktop = "$env:USERPROFILE\Desktop"
           if (Test-Path "$userDesktop\Opera GX.lnk") {
@@ -181,7 +178,7 @@ jobs:
           $Shortcut.Arguments = "https://www.opera.com/gx/forsaken --no-first-run"
           $Shortcut.Save()
 
-          # RUN #2 (PERSISTENT INTERACTIVE INSTANCE): Opens completely normal and writable for the user
+          # RUN #2 (PERSISTENT INTERACTIVE INSTANCE): Launches completely normal and writable for the user
           Write-Host "Launching final interactive workspace instance (fully writable)..."
           Start-Process -FilePath $operaExe -ArgumentList "https://www.opera.com/gx/forsaken", "--no-first-run"
 
