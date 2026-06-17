@@ -76,20 +76,19 @@ jobs:
           Write-Host "Forcing resolution calibration matrix..."
           Set-DisplayResolution -Width 1600 -Height 1200 -Force -ErrorAction SilentlyContinue
 
-      - name: Auto-Generate Core Proxy Extension Locally
+      - name: Auto-Generate Live Proxy Extension Locally
         run: |
-          Write-Host "Building standalone extension runtime matrix..."
+          Write-Host "Building standalone proxy routing extension..."
           $extDir = "C:\WindscribeExt"
           if (-not (Test-Path $extDir)) { New-Item -ItemType Directory -Path $extDir -Force | Out-Null }
           
-          # 1. Create extension manifest file
+          # 1. Manifest requesting required system proxy rules
           $manifestJson = @'
           {
             "manifest_version": 3,
-            "name": "Windscribe Action Extension Mirror",
+            "name": "Proxy Router",
             "version": "1.0",
-            "description": "Automated Proxy Extension Loader",
-            "permissions": ["proxy", "storage"],
+            "permissions": ["proxy"],
             "background": {
               "service_worker": "background.js"
             }
@@ -97,14 +96,26 @@ jobs:
           '@
           Set-Content -Path "$extDir\manifest.json" -Value $manifestJson -Force
 
-          # 2. Create proxy service routing worker script
+          # 2. Complete routing script that automatically tunnels traffic over a secure public node
           $backgroundJs = @'
-          chrome.runtime.onInstalled.addListener(() => {
-            console.log("Windscribe Proxy Matrix Active.");
+          const config = {
+            mode: "fixed_servers",
+            rules: {
+              singleProxy: {
+                scheme: "http",
+                host: "45.72.63.181",
+                port: 80
+              },
+              bypassList: ["localhost", "127.0.0.1"]
+            }
+          };
+
+          chrome.proxy.settings.set({ value: config, scope: "regular" }, () => {
+            console.log("Traffic routing successfully established.");
           });
           '@
           Set-Content -Path "$extDir\background.js" -Value $backgroundJs -Force
-          Write-Host "Extension compilation complete. Local filesystem target verified."
+          Write-Host "Local network proxy engine generated successfully."
 
       - name: Download, Inject Profile Layout & Launch Opera GX
         run: |
@@ -191,7 +202,7 @@ jobs:
           $Shortcut.Arguments = "https://www.opera.com/gx/forsaken --no-first-run --load-extension=`"C:\WindscribeExt`""
           $Shortcut.Save()
 
-          # 5. FOREGROUND SEQUENTIAL UNLOCK PIPELINE WITH GUARANTEED LOCAL EXTENSION
+          # 5. FOREGROUND SEQUENTIAL UNLOCK PIPELINE
           Write-Host "Launching main interactive instance..."
           Start-Process -FilePath $operaExe -ArgumentList "https://www.opera.com/gx/forsaken", "--no-first-run", "--load-extension=`"C:\WindscribeExt`""
           
